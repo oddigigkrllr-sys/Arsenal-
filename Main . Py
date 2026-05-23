@@ -1,0 +1,101 @@
+import os, asyncio
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+import yt_dlp
+
+TOKEN = '8864904906:AAEutAWiGFQjgqwxUo4b2fesamVZacrprHA'
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+# Ismlar bazasi (Siz yuborgan ro'yxat uchun)
+ISMLAR_MANOSI = {
+    "muhammad": "Maqtovga loyiq, olqishlangan.", "fotima": "Pokiza, sutdan ajratilgan.",
+    "ali": "Oliy, yuksak va ulug'vor.", "oisha": "Tinch-omon yashovchi, barhayot.",
+    "kamron": "Baxtli, saodatli, orzusi ushalgan.", "kamronbek": "Baxtli va oliynasab bek.",
+}
+
+# Sher lug'ati
+SHER_LUGATI = {
+    'a': 'Aqlli va dono, qalbi daryo inson,',
+    'b': 'Baxtu saodatga yordir har qachon.',
+    'd': 'Dunyoda eng aziz, mehri bo\'lakcha,',
+    'e': 'Ezgu amallarila yashar doimo.',
+    'f': 'Farishtadek pokiza, iymoni butun,',
+    'g': 'Gullardan taralar sizning iforingiz.',
+    'h': 'Hayoti nurlarga to\'lsin ilohim.',
+    'i': 'Iymoni butundir, qalbi pokiza.',
+    'j': 'Jasur va dovyurak, mardlar sarvari.',
+    'k': 'Kamoli baxtini ko\'rsin har qachon.',
+    'l': 'Lutfu karamiga shaydodir jahon.',
+    'm': 'Mehridan dunyolar yashnar har safar.',
+    'n': 'Niyati pokiza, orzulari ko\'p.',
+    'o': 'Olamning ziynati, nurli siymosi.',
+    'p': 'Pokiza qalbingiz nurlarga to\'lsin.',
+    'r': 'Rahmatlar yog\'ilsin qadamlaringga.',
+    's': 'Sadoqat yo\'lida sobit va mahkam.',
+    't': 'Toleying baland bo\'lsin aziz insonim.',
+    'u': 'Umidli dunyoda porlar yulduzdek.',
+    'v': 'Vafodor do\'st bo\'lib yashar har qachon.',
+    'y': 'Yuzingizdan kulgu arimasin hech.',
+    'z': 'Zafarlar yor bo\'lsin har bir qadamda.',
+    'sh': 'Shon-sharafi baland, aziz insonim,',
+    'ch': 'Chaqnoq ko\'zlaringiz baxtdan porlasin,'
+}
+
+YDL_OPTS = {'format': 'bestvideo+bestaudio/best', 'quiet': True, 'concurrent_fragments': 15}
+
+def download_video(url, out_file):
+    opts = YDL_OPTS.copy()
+    opts['outtmpl'] = out_file
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download([url])
+
+# --- ASOSIY BUYRUQLAR ---
+
+@dp.message(Command("start"))
+async def start_handler(message: types.Message):
+    # Siz xohlagan yangi start matni
+    start_text = (
+        "👋 Assalomu alaykum!\n"
+        "🤖 Botga xush kelibsiz.\n\n"
+        "📥 Video yuklash 📖 Ism ma'nosi ✍️ Ismga she'r"
+    )
+    await message.answer(start_text)
+
+@dp.message(F.text.lower().contains("rahmat"))
+async def thanks_handler(message: types.Message):
+    await message.answer("Sizga foydam tekkanidan hursandman😊")
+
+@dp.message(F.text.contains("http"))
+async def handle_link(message: types.Message):
+    await message.answer("iltimos! Biroz kutib turing\nVideoyingiz 4k sifatda yuklanmoqda")
+    video_path = f"v_{message.from_user.id}.mp4"
+    try:
+        await asyncio.to_thread(download_video, message.text, video_path)
+        if os.path.exists(video_path):
+            await message.answer_video(video=types.FSInputFile(video_path), caption="Tayyor! ✅")
+    except:
+        await message.answer("Xatolik yuz berdi.")
+    finally:
+        if os.path.exists(video_path): os.remove(video_path)
+
+@dp.message(F.text)
+async def name_logic(message: types.Message):
+    name = message.text.lower().strip()
+    manosi = ISMLAR_MANOSI.get(name, "Bu ism o'zbek xalqi orasida juda mashhur va go'zal ism hisoblanadi.")
+    
+    poem = ""
+    temp_name = name.replace("sh", "1").replace("ch", "2").replace("o'", "3")
+    for letter in temp_name:
+        key = "sh" if letter == "1" else "ch" if letter == "2" else "o'" if letter == "3" else letter
+        if key in SHER_LUGATI:
+            poem += f"**{key.upper()}** - {SHER_LUGATI[key]}\n"
+
+    result = f"✨ **{message.text.capitalize()}** ismining ma'nosi:\n{manosi}\n\n📜 **Siz uchun maxsus sher:**\n\n{poem}"
+    await message.answer(result, parse_mode="Markdown")
+
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
